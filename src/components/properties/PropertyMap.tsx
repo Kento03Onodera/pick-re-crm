@@ -19,7 +19,6 @@ const MapComponent = ({ properties }: { properties: Property[] }) => {
                 zoom: 13,
                 disableDefaultUI: false,
                 clickableIcons: false,
-                mapId: "property-map" // Needed for advanced markers if used, safe to check
             }));
         }
     }, [ref, map]);
