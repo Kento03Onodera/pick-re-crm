@@ -74,14 +74,58 @@ export function LeadInfoTabs({ lead }: LeadInfoTabsProps) {
                         </CardHeader>
                         <CardContent className="grid grid-cols-2 gap-6 p-6">
                             <InfoItem label="予算" value={formattedBudget} />
+
                             <InfoItem
                                 label="見込み収益 (Preview)"
                                 value={formattedRevenue}
                                 highlight
-                                subtext="※ 予算 × 3% (手数料) + 6万円"
+                                subtext={`※ 予算 × 3% × ${lead.discountRate || 1.0} + 6万円`}
                             />
-                            <InfoItem label="希望エリア" value={lead.areas.join(", ")} />
-                            <InfoItem label="希望沿線・駅" value="-" />
+
+                            <InfoItem
+                                label="検索依頼"
+                                value={lead.isSearchRequested ? "依頼あり" : "なし"}
+                                highlight={lead.isSearchRequested}
+                            />
+
+                            <InfoItem
+                                label="検索頻度"
+                                value={
+                                    lead.searchFrequency === "3days" ? "3日ごと" :
+                                        lead.searchFrequency === "1week" ? "1週間ごと" :
+                                            lead.searchFrequency === "2week" ? "2週間ごと" : "-"
+                                }
+                            />
+
+                            <InfoItem
+                                label="手数料値引き率"
+                                value={lead.discountRate ? `${lead.discountRate} (定価=1.0)` : "1.0"}
+                            />
+
+                            <div className="h-0 md:col-span-1" />
+
+                            <InfoItem
+                                label="希望エリア"
+                                value={lead.areas && lead.areas.length > 0 ? (
+                                    <div className="flex flex-col gap-1">
+                                        {lead.areas.map((area, i) => (
+                                            <span key={i}>第{i + 1}: {area}</span>
+                                        ))}
+                                    </div>
+                                ) : "指定なし"}
+                            />
+
+                            <InfoItem
+                                label="希望沿線・駅"
+                                value={lead.stations && lead.stations.length > 0 ? (
+                                    <div className="flex flex-col gap-1">
+                                        {lead.stations.map((st, i) => (
+                                            <span key={i}>第{i + 1}: {st}</span>
+                                        ))}
+                                    </div>
+                                ) : "指定なし"}
+                            />
+
                             <InfoItem label="広さ" value="60㎡以上" />
                             <InfoItem label="間取り" value="2LDK / 3LDK" />
                             <InfoItem label="ペット" value={lead.tags?.includes("ペット可") ? "希望する" : "指定なし"} />

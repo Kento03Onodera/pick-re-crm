@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Lead } from "@/types/lead";
 import { doc, updateDoc, addDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -29,9 +30,23 @@ const leadFormSchema = z.object({
     // Requirements
     budget: z.coerce.number().min(0),
     discountRate: z.coerce.number().min(0).max(100).optional(),
-    preferredArea: z.string().optional(),
+
+    // Areas (1st, 2nd, 3rd)
+    area1: z.string().optional(),
+    area2: z.string().optional(),
+    area3: z.string().optional(),
+
+    // Stations (1st, 2nd, 3rd)
+    station1: z.string().optional(),
+    station2: z.string().optional(),
+    station3: z.string().optional(),
+
     propertyType: z.string().optional(),
     moveInDate: z.string().optional(),
+
+    // Search Settings
+    isSearchRequested: z.boolean().default(false).optional(),
+    searchFrequency: z.enum(["3days", "1week", "2week"]).optional(),
 
     // Other
     occupation: z.string().optional(),
@@ -62,9 +77,22 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
             phone: lead?.tel || "",
             budget: lead?.budget || 0,
             discountRate: lead?.discountRate ?? 1.0,
-            preferredArea: lead?.areas?.[0] || "",
+
+            // Map array to individual fields
+            area1: lead?.areas?.[0] || "",
+            area2: lead?.areas?.[1] || "",
+            area3: lead?.areas?.[2] || "",
+
+            station1: lead?.stations?.[0] || "",
+            station2: lead?.stations?.[1] || "",
+            station3: lead?.stations?.[2] || "",
+
             propertyType: lead?.propertyType || "Mansion",
             moveInDate: lead?.moveInDate || "",
+
+            isSearchRequested: lead?.isSearchRequested || false,
+            searchFrequency: lead?.searchFrequency || "1week",
+
             occupation: "",
             familyStructure: lead?.familyStructure || "",
             leadType: lead?.leadType || "Buy",
@@ -79,16 +107,26 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
     useEffect(() => {
         if (open) {
             if (lead) {
-                // If editing, force set values (in case lead prop updates or modal re-opens)
                 form.reset({
                     name: lead.name,
                     email: lead.mail,
                     phone: lead.tel,
                     budget: lead.budget,
                     discountRate: lead.discountRate ?? 1.0,
-                    preferredArea: lead.areas?.[0] || "",
+
+                    area1: lead.areas?.[0] || "",
+                    area2: lead.areas?.[1] || "",
+                    area3: lead.areas?.[2] || "",
+
+                    station1: lead.stations?.[0] || "",
+                    station2: lead.stations?.[1] || "",
+                    station3: lead.stations?.[2] || "",
+
                     propertyType: lead.propertyType,
                     moveInDate: lead.moveInDate,
+                    isSearchRequested: lead.isSearchRequested || false,
+                    searchFrequency: lead.searchFrequency || "1week",
+
                     familyStructure: lead.familyStructure,
                     leadType: lead.leadType,
                     assignedAgent: lead.agentName,
@@ -117,13 +155,23 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
         try {
             console.log("Submitting Lead Data:", data);
 
+            // Construct arrays (filtering out empty strings)
+            const areas = [data.area1, data.area2, data.area3].filter(Boolean) as string[];
+            const stations = [data.station1, data.station2, data.station3].filter(Boolean) as string[];
+
             const commonData = {
                 name: data.name,
                 mail: data.email,
                 tel: data.phone,
                 budget: data.budget,
                 discountRate: data.discountRate ?? 1.0,
-                areas: data.preferredArea ? [data.preferredArea] : [],
+
+                areas: areas,
+                stations: stations,
+
+                isSearchRequested: data.isSearchRequested,
+                searchFrequency: data.searchFrequency,
+
                 familyStructure: data.familyStructure,
                 agentName: data.assignedAgent,
                 status: data.status as LeadStatus,
@@ -138,19 +186,18 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
                 const docRef = doc(db, "leads", lead.id);
                 await updateDoc(docRef, {
                     ...commonData,
-                    // Preserve other fields if any, but specific form fields overwrite
                 });
             } else {
                 // Create new
                 await addDoc(collection(db, "leads"), {
                     ...commonData,
                     createdAt: new Date().toISOString(),
-                    tags: ["新規登録"],
+                    tags: [], // No longer adding "新規登録"
                 });
             }
 
             setOpen(false);
-            if (!lead) form.reset(); // Only reset if create mode
+            if (!lead) form.reset();
         } catch (error) {
             console.error("Error saving lead:", error);
         } finally {
@@ -200,10 +247,6 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
                                 <Input id="name" placeholder="山田 太郎" {...register("name")} />
                                 {errors.name && <span className="text-red-500 text-xs">{errors.name.message}</span>}
                             </div>
-                            {/* <div className="grid gap-2">
-                        <Label htmlFor="company">Company</Label>
-                        <Input id="company" placeholder="株式会社..." {...register("company")} />
-                    </div> */}
                             <div className="grid gap-2">
                                 <Label htmlFor="phone">電話番号 <span className="text-red-500">*</span></Label>
                                 <Input id="phone" placeholder="090-1234-5678" {...register("phone")} />
@@ -237,27 +280,52 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
                                 <Input id="discountRate" type="number" step="0.1" placeholder="1.0" {...register("discountRate")} />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="area">希望エリア</Label>
-                                    <Input id="area" placeholder="渋谷区" {...register("preferredArea")} />
+                            {/* Preferred Areas */}
+                            <div className="grid gap-2">
+                                <Label>希望エリア (第1〜第3候補)</Label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    <Input placeholder="第1候補 (例: 渋谷区)" {...register("area1")} />
+                                    <Input placeholder="第2候補" {...register("area2")} />
+                                    <Input placeholder="第3候補" {...register("area3")} />
                                 </div>
-                                {/* <div className="grid gap-2">
-                            <Label htmlFor="type">Type</Label>
-                            <Select onValueChange={(val) => setValue("propertyType", val)} defaultValue="Mansion">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Mansion">Mansion</SelectItem>
-                                    <SelectItem value="House">House</SelectItem>
-                                    <SelectItem value="Land">Land</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div> */}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            {/* Preferred Stations */}
+                            <div className="grid gap-2">
+                                <Label>希望沿線・駅 (第1〜第3候補)</Label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    <Input placeholder="第1候補 (例: 山手線 渋谷駅)" {...register("station1")} />
+                                    <Input placeholder="第2候補" {...register("station2")} />
+                                    <Input placeholder="第3候補" {...register("station3")} />
+                                </div>
+                            </div>
+
+                            {/* Search Settings */}
+                            <div className="grid grid-cols-2 gap-4 pt-2 border-t mt-2">
+                                <div className="flex items-center space-x-2 mt-4">
+                                    <Checkbox
+                                        id="searchRequest"
+                                        checked={watch("isSearchRequested")}
+                                        onCheckedChange={(c) => setValue("isSearchRequested", c as boolean)}
+                                    />
+                                    <Label htmlFor="searchRequest">検索依頼あり</Label>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="searchFrequency">検索頻度</Label>
+                                    <Select onValueChange={(val: "3days" | "1week" | "2week") => setValue("searchFrequency", val)} defaultValue="1week">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="頻度を選択" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="3days">3日ごと</SelectItem>
+                                            <SelectItem value="1week">1週間ごと</SelectItem>
+                                            <SelectItem value="2week">2週間ごと</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
                                 <div className="grid gap-2">
                                     <Label htmlFor="agent">担当者 <span className="text-red-500">*</span></Label>
                                     <Input id="agent" placeholder="担当者名" {...register("assignedAgent")} />

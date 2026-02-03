@@ -53,6 +53,10 @@ export interface Lead {
     propertyType?: string;
     moveInDate?: string;
 
+    isSearchRequested?: boolean; // Search Request (Checkbox)
+    searchFrequency?: "3days" | "1week" | "2week";
+    stations?: string[]; // Preferred Stations (1st, 2nd, 3rd)
+
     inquiredProperties?: {
         id: string;
         name: string;

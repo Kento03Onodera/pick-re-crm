@@ -87,11 +87,13 @@ export function LeadDetailHeader({ lead }: LeadDetailHeaderProps) {
                             {/* Tags Row */}
                             <div className="flex flex-wrap gap-2">
                                 {lead.tags && lead.tags.length > 0 ? (
-                                    lead.tags.map(tag => (
-                                        <Badge key={tag} variant="secondary" className="bg-slate-100 text-slate-600 text-xs border border-slate-200">
-                                            {tag}
-                                        </Badge>
-                                    ))
+                                    lead.tags
+                                        .filter(tag => tag !== "新規登録") // Filter out the legacy auto-tag
+                                        .map(tag => (
+                                            <Badge key={tag} variant="secondary" className="bg-slate-100 text-slate-600 text-xs border border-slate-200">
+                                                {tag}
+                                            </Badge>
+                                        ))
                                 ) : (
                                     <span className="text-xs text-gray-400">タグ設定なし</span>
                                 )}
