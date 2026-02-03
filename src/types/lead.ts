@@ -80,4 +80,17 @@ export interface Lead {
 
     // Kanban Position
     order?: number; // For drag and drop sorting within column
+
+    activities?: Activity[];
+}
+
+export type ActivityType = "Call" | "Email" | "Meeting" | "Note" | "Visit";
+
+export interface Activity {
+    id: string;
+    type: ActivityType;
+    timestamp: string; // ISO string
+    content: string;
+    agentId?: string;
+    agentName?: string;
 }

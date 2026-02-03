@@ -8,18 +8,6 @@ import { Separator } from "@/components/ui/separator";
 
 export default function SettingsAgentsPage() {
     const { agents, loading } = useAgents();
-    const [localAgents, setLocalAgents] = useState<Agent[]>([]);
-
-    const initialized = useRef(false);
-
-    useEffect(() => {
-        if (!loading && agents.length > 0 && !initialized.current) {
-            setLocalAgents(agents);
-            initialized.current = true;
-        } else if (!loading && agents.length > 0) {
-            setLocalAgents(agents);
-        }
-    }, [agents, loading]);
 
     return (
         <div className="space-y-6">
@@ -42,13 +30,13 @@ export default function SettingsAgentsPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {localAgents.length === 0 ? (
+                        {agents.length === 0 ? (
                             <div className="text-center py-8 text-muted-foreground text-sm">
                                 担当者が登録されていません。
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                {localAgents.map((agent) => (
+                                {agents.map((agent) => (
                                     <div key={agent.id} className="flex items-center justify-between p-4 border rounded-lg bg-white shadow-sm">
                                         <div className="flex items-center gap-4">
                                             <Avatar>

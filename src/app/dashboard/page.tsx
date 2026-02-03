@@ -17,7 +17,7 @@ import { useStatuses } from "@/hooks/use-statuses";
 
 // Custom Tooltip for Recharts
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CustomTooltip = ({ active, payload, label, getStatusLabel }: any) => {
+const CustomTooltip = ({ active, payload, label, getStatusLabel }: { active?: boolean; payload?: any[]; label?: string; getStatusLabel?: (id: string) => string }) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-white border rounded-lg shadow-lg p-3 text-xs">

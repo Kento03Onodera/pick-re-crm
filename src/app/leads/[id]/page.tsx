@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Lead } from "@/types/lead";
 import { MOCK_LEADS } from "@/utils/calculations";
@@ -28,52 +28,45 @@ export default function LeadDetailPage() {
     }, [user, loading, router]);
 
     useEffect(() => {
-        const fetchLead = async () => {
-            if (!user) return;
+        if (!user || !leadId) return;
 
-            try {
-                setPageLoading(true);
-                // 1. Try to get from Firestore
-                const docRef = doc(db, "leads", leadId);
-                const docSnap = await getDoc(docRef);
+        // setPageLoading(true); // Removed to avoid cascading render warning
+        const docRef = doc(db, "leads", leadId);
 
-                if (docSnap.exists()) {
-                    const firestoreData = { id: docSnap.id, ...docSnap.data() } as Lead;
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const firestoreData = { id: docSnap.id, ...docSnap.data() } as Lead;
 
-                    // 2. Merge with Mock Data for missing fields (Activities, etc.) if needed
-                    // For demo purposes, if ID matches mock, we use mock rich data + firestore status/budget updates
-                    const mockLead = MOCK_LEADS.find(l => l.id === leadId);
+                // Merge with mock if needed (same logic as before)
+                const mockLead = MOCK_LEADS.find(l => l.id === leadId);
 
-                    if (mockLead) {
-                        // Priority: Firestore (Real data) > Mock (Rich data for demo)
-                        // Actually, for this demo, let's trust Mock for the static rich fields (activities)
-                        // and Firestore for the dynamic fields (status, budget, etc).
-                        setLead({
-                            ...mockLead,
-                            ...firestoreData, // Overwrite with Firestore status/budget
-                            // Ensure rich arrays from mock are preserved if missing in Firestore
-                            activities: firestoreData.activities || mockLead.activities,
-                            inquiredProperties: firestoreData.inquiredProperties || mockLead.inquiredProperties,
-                        });
-                    } else {
-                        setLead(firestoreData);
-                    }
+                if (mockLead) {
+                    setLead({
+                        ...mockLead,
+                        ...firestoreData,
+                        // Priority: Firestore updates override Mock
+                        // For arrays like activities, we prefer Firestore if available (it might be empty initially)
+                        // If Firestore has activities array (even empty), use it. If undefined, use mock.
+                        activities: firestoreData.activities !== undefined ? firestoreData.activities : mockLead.activities,
+                        inquiredProperties: firestoreData.inquiredProperties !== undefined ? firestoreData.inquiredProperties : mockLead.inquiredProperties,
+                    });
                 } else {
-                    console.log("No such document!");
-                    // Fallback to pure mock if not in Firestore (shouldn't happen if seeded)
-                    const mockLead = MOCK_LEADS.find(l => l.id === leadId);
-                    if (mockLead) setLead(mockLead);
+                    setLead(firestoreData);
                 }
-            } catch (error) {
-                console.error("Error fetching lead:", error);
-            } finally {
+                setPageLoading(false);
+            } else {
+                console.log("No such document!");
+                // Fallback to mock
+                const mockLead = MOCK_LEADS.find(l => l.id === leadId);
+                if (mockLead) setLead(mockLead);
                 setPageLoading(false);
             }
-        };
+        }, (error) => {
+            console.error("Error fetching lead:", error);
+            setPageLoading(false);
+        });
 
-        if (user && leadId) {
-            fetchLead();
-        }
+        return () => unsubscribe();
     }, [user, leadId]);
 
     if (loading || pageLoading) {
@@ -112,7 +105,7 @@ export default function LeadDetailPage() {
                     <LeadInfoTabs lead={lead} />
 
                     {/* Right: Activity Timeline (Fixed width) */}
-                    <ActivityTimeline activities={lead.activities} />
+                    <ActivityTimeline activities={lead.activities} leadId={lead.id} />
                 </div>
             </div>
         </div>
