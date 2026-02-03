@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Wrapper, Status } from "@googlemaps/react-wrapper";
 import { Property } from "@/types/property";
+import { useRouter } from "next/navigation";
 
 interface PropertyMapProps {
     properties: Property[];
@@ -11,6 +12,7 @@ interface PropertyMapProps {
 const MapComponent = ({ properties }: { properties: Property[] }) => {
     const ref = useRef<HTMLDivElement>(null);
     const [map, setMap] = useState<google.maps.Map>();
+    const router = useRouter();
 
     useEffect(() => {
         if (ref.current && !map) {
@@ -23,12 +25,10 @@ const MapComponent = ({ properties }: { properties: Property[] }) => {
         }
     }, [ref, map]);
 
+
     // Update markers when properties change
     useEffect(() => {
         if (!map) return;
-
-        // Clear existing markers (not implemented for simplicity as we just re-render or add new)
-        // In a real app we would track marker instances to remove them.
 
         const markers: google.maps.Marker[] = [];
 
@@ -40,28 +40,31 @@ const MapComponent = ({ properties }: { properties: Property[] }) => {
                     title: property.name,
                 });
 
-                // InfoWindow
+                // Create DOM element for InfoWindow content to enable SPA navigation
+                const contentDiv = document.createElement("div");
+                contentDiv.style.cursor = "pointer";
+                contentDiv.style.padding = "8px";
+                contentDiv.style.width = "200px";
+                contentDiv.innerHTML = `
+                    <img src="${property.images?.[0] || ''}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;" />
+                    <h3 style="font-weight: bold; margin-bottom: 4px; font-size: 14px;">${property.name}</h3>
+                    <p style="color: #666; font-size: 12px; margin-bottom: 4px;">${property.address}</p>
+                    <p style="color: #0066cc; font-weight: bold; font-size: 14px;">${(property.price / 10000).toLocaleString()}万円</p>
+                `;
+
+                // Add click listener to navigate
+                contentDiv.addEventListener("click", () => {
+                    router.push(`/properties/${property.id}`);
+                });
+
                 const infoWindow = new google.maps.InfoWindow({
-                    content: `
-                        <div style="padding: 8px; width: 200px;">
-                            <img src="${property.images?.[0] || ''}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;" />
-                            <h3 style="font-weight: bold; margin-bottom: 4px; font-size: 14px;">${property.name}</h3>
-                            <p style="color: #666; font-size: 12px; margin-bottom: 4px;">${property.address}</p>
-                            <p style="color: #0066cc; font-weight: bold; font-size: 14px;">${(property.price / 10000).toLocaleString()}万円</p>
-                        </div>
-                    `,
+                    content: contentDiv,
                 });
 
                 marker.addListener("click", () => {
                     infoWindow.open(map, marker);
                 });
 
-                // Optional: click info window content to navigate? 
-                // Creating a custom overlay or using google maps event on info window content is complex.
-                // Simple workaround: Clicking the marker opens info window.
-                // We'll rely on the user seeing the info.
-
-                // Keep track
                 markers.push(marker);
             }
         });
@@ -69,7 +72,7 @@ const MapComponent = ({ properties }: { properties: Property[] }) => {
         return () => {
             markers.forEach(m => m.setMap(null));
         };
-    }, [map, properties]);
+    }, [map, properties, router]);
 
     return <div ref={ref} style={{ width: "100%", height: "100%", minHeight: "calc(100vh - 200px)" }} />;
 };
