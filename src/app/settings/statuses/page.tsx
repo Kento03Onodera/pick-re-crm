@@ -9,6 +9,7 @@ import { useStatuses } from "@/hooks/use-statuses";
 import { StatusConfig } from "@/types/lead";
 import { Loader2, Save, RotateCcw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
 export default function SettingsStatusPage() {
     const { statuses, loading, updateStatuses } = useStatuses();
@@ -56,6 +57,7 @@ export default function SettingsStatusPage() {
 
     return (
         <div className="space-y-6">
+            <Breadcrumbs items={[{ label: "設定" }, { label: "ステータス設定" }]} />
             <div>
                 <h1 className="text-2xl font-bold tracking-tight">ステータス設定</h1>
                 <p className="text-muted-foreground mt-2">

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Phone, Mail, Edit, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useStatuses } from "@/hooks/use-statuses";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
 interface LeadDetailHeaderProps {
     lead: Lead;
@@ -36,7 +37,13 @@ export function LeadDetailHeader({ lead }: LeadDetailHeaderProps) {
     };
 
     return (
-        <div className="bg-white border-b px-8 py-6 shrink-0">
+        <div className="bg-white border-b px-8 py-6 shrink-0 space-y-4">
+            <Breadcrumbs
+                items={[
+                    { label: "顧客一覧", href: "/leads" },
+                    { label: lead.name }
+                ]}
+            />
             <div className="flex items-start justify-between">
                 <div className="flex items-start gap-6">
                     <Avatar className="h-20 w-20 mt-1">

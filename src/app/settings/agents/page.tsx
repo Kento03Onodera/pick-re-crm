@@ -5,12 +5,14 @@ import { useAgents, Agent } from "@/hooks/use-agents";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
 export default function SettingsAgentsPage() {
     const { agents, loading } = useAgents();
 
     return (
         <div className="space-y-6">
+            <Breadcrumbs items={[{ label: "設定" }, { label: "担当者設定" }]} />
             <div>
                 <h1 className="text-2xl font-bold tracking-tight">担当者設定</h1>
                 <p className="text-muted-foreground mt-2">
