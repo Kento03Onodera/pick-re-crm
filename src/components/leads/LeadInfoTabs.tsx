@@ -65,18 +65,7 @@ export function LeadInfoTabs({ lead }: LeadInfoTabsProps) {
                         </CardContent>
                     </Card>
 
-                    {/* Section 2: Sales Management */}
-                    <Card>
-                        <CardHeader className="pb-3 border-b bg-gray-50/50 rounded-t-xl">
-                            <CardTitle className="text-base font-semibold text-gray-800">営業管理 (Sales)</CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-2 gap-6 p-6">
-                            <InfoItem label="現在のステータス" value={lead.status} />
-                            <InfoItem label="優先度" value={lead.priority === "High" ? "高" : lead.priority === "Mid" ? "中" : "低"} />
-                            <InfoItem label="担当エージェント" value={lead.agentName || "未割当"} />
-                            <InfoItem label="最終更新日" value={new Date(lead.updatedAt).toLocaleDateString()} />
-                        </CardContent>
-                    </Card>
+
 
                     {/* Section 3: Search Requirements */}
                     <Card>

@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { addDoc, collection } from "firebase/firestore";
+import { Lead } from "@/types/lead";
+import { doc, updateDoc, addDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Plus } from "lucide-react";
 import { LeadStatus } from "@/types/lead";
@@ -27,17 +28,7 @@ const leadFormSchema = z.object({
 
     // Requirements
     budget: z.coerce.number().min(0),
-    discountRate: z.coerce.number().min(0).max(100).optional(), // Input as percentage (e.g. 100%, 90% or discount%? User said "Discount Rate")
-    // User request: "({予算金額}×(0.03×{手数料値引き率))+6万円" -> "Discount Rate" seems to be the applied rate multiplier. 
-    // Wait, "値引き率" usually means "Discount Percentage" (e.g. 10%).
-    // But if the formula is `0.03 * Rate`, then `Rate` of 1.0 (100%) makes sense for full price.
-    // If I enter 10 (10%), `0.03 * 10` is wrong.
-    // Let's assume input is "Applied Rate %". e.g. 100% = Full fee. 50% = Half fee.
-    // Let's call it "手数料適用率" (Fee Application Rate) to be clear, but label it "手数料率(%)" 
-    // Or stick to "手数料値引き率" and interpret.
-    // If user says "Discount Rate" and formula is `0.03 * Rate`, then logically Rate is "1 - Discount".
-    // Let's stick to the multiplier logic for now but present it clearly.
-    // Actually, let's just make it a number input: "手数料掛率 (1.0 = Regular)"
+    discountRate: z.coerce.number().min(0).max(100).optional(),
     preferredArea: z.string().optional(),
     propertyType: z.string().optional(),
     moveInDate: z.string().optional(),
@@ -57,7 +48,7 @@ const leadFormSchema = z.object({
 
 type LeadFormValues = z.infer<typeof leadFormSchema>;
 
-export function LeadRegistrationModal({ trigger, initialStatus }: { trigger?: React.ReactNode; initialStatus?: LeadStatus }) {
+export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigger?: React.ReactNode; initialStatus?: LeadStatus; lead?: Lead }) {
     const [open, setOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { statuses } = useStatuses();
@@ -65,31 +56,51 @@ export function LeadRegistrationModal({ trigger, initialStatus }: { trigger?: Re
     const form = useForm({
         resolver: zodResolver(leadFormSchema),
         defaultValues: {
-            name: "",
+            name: lead?.name || "",
             company: "",
-            email: "",
-            phone: "",
-            budget: 0,
-            discountRate: 1.0,
-            preferredArea: "",
-            propertyType: "Mansion",
-            moveInDate: "",
+            email: lead?.mail || "",
+            phone: lead?.tel || "",
+            budget: lead?.budget || 0,
+            discountRate: lead?.discountRate ?? 1.0,
+            preferredArea: lead?.areas?.[0] || "",
+            propertyType: lead?.propertyType || "Mansion",
+            moveInDate: lead?.moveInDate || "",
             occupation: "",
-            familyStructure: "",
-            leadType: "Buy",
-            assignedAgent: "",
-            status: initialStatus || "New",
-            priority: "Mid",
-            memo: "",
+            familyStructure: lead?.familyStructure || "",
+            leadType: lead?.leadType || "Buy",
+            assignedAgent: lead?.agentName || "",
+            status: (lead?.status || initialStatus) || "New",
+            priority: lead?.priority || "Mid",
+            memo: lead?.memo || "",
         },
     });
 
     // Reset form status when initialStatus changes or modal opens
     useEffect(() => {
-        if (open && initialStatus) {
-            form.setValue("status", initialStatus);
+        if (open) {
+            if (lead) {
+                // If editing, force set values (in case lead prop updates or modal re-opens)
+                form.reset({
+                    name: lead.name,
+                    email: lead.mail,
+                    phone: lead.tel,
+                    budget: lead.budget,
+                    discountRate: lead.discountRate ?? 1.0,
+                    preferredArea: lead.areas?.[0] || "",
+                    propertyType: lead.propertyType,
+                    moveInDate: lead.moveInDate,
+                    familyStructure: lead.familyStructure,
+                    leadType: lead.leadType,
+                    assignedAgent: lead.agentName,
+                    status: lead.status,
+                    priority: lead.priority,
+                    memo: lead.memo,
+                });
+            } else if (initialStatus) {
+                form.setValue("status", initialStatus);
+            }
         }
-    }, [open, initialStatus, form]);
+    }, [open, initialStatus, lead, form]);
 
     const { watch, register, handleSubmit, setValue, formState: { errors } } = form;
 
@@ -106,34 +117,42 @@ export function LeadRegistrationModal({ trigger, initialStatus }: { trigger?: Re
         try {
             console.log("Submitting Lead Data:", data);
 
-            // Basic Firestore Add
-            await addDoc(collection(db, "leads"), {
+            const commonData = {
                 name: data.name,
-                // company: data.company, // Add to type if needed
                 mail: data.email,
                 tel: data.phone,
                 budget: data.budget,
                 discountRate: data.discountRate ?? 1.0,
                 areas: data.preferredArea ? [data.preferredArea] : [],
-                // propertyType: data.propertyType,
-                // moveInDate: data.moveInDate,
-                // occupation: data.occupation,
                 familyStructure: data.familyStructure,
-                agentName: data.assignedAgent, // Storing name as ID for demo or logic
+                agentName: data.assignedAgent,
                 status: data.status as LeadStatus,
                 priority: data.priority,
                 memo: data.memo,
-                createdAt: new Date().toISOString(), // Use serverTimestamp() in real app but strict types expects string
                 updatedAt: new Date().toISOString(),
-
                 leadType: data.leadType,
-                tags: ["新規登録"],
-            });
+            };
+
+            if (lead) {
+                // Update existing
+                const docRef = doc(db, "leads", lead.id);
+                await updateDoc(docRef, {
+                    ...commonData,
+                    // Preserve other fields if any, but specific form fields overwrite
+                });
+            } else {
+                // Create new
+                await addDoc(collection(db, "leads"), {
+                    ...commonData,
+                    createdAt: new Date().toISOString(),
+                    tags: ["新規登録"],
+                });
+            }
 
             setOpen(false);
-            form.reset();
+            if (!lead) form.reset(); // Only reset if create mode
         } catch (error) {
-            console.error("Error adding lead:", error);
+            console.error("Error saving lead:", error);
         } finally {
             setIsSubmitting(false);
         }
@@ -151,9 +170,9 @@ export function LeadRegistrationModal({ trigger, initialStatus }: { trigger?: Re
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>新規顧客登録</DialogTitle>
+                    <DialogTitle>{lead ? "顧客情報編集" : "新規顧客登録"}</DialogTitle>
                     <DialogDescription>
-                        新しい顧客の情報を入力してください。
+                        {lead ? "顧客情報を更新します。" : "新しい顧客の情報を入力してください。"}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -285,7 +304,7 @@ export function LeadRegistrationModal({ trigger, initialStatus }: { trigger?: Re
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
                         <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "登録中..." : "登録"}
+                            {isSubmitting ? (lead ? "更新中..." : "登録中...") : (lead ? "更新" : "登録")}
                         </Button>
                     </DialogFooter>
                 </form>

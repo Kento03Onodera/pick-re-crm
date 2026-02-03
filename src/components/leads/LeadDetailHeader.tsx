@@ -1,5 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { doc, deleteDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { LeadRegistrationModal } from "./LeadRegistrationModal";
 import { Lead } from "@/types/lead";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,9 +17,22 @@ interface LeadDetailHeaderProps {
 
 export function LeadDetailHeader({ lead }: LeadDetailHeaderProps) {
     const { getStatusLabel, getStatusColor } = useStatuses();
+    const router = useRouter();
 
     const getInitials = (name: string) => {
         return name.slice(0, 2);
+    };
+
+    const handleDelete = async () => {
+        if (!confirm("この顧客情報を削除してもよろしいですか？（この操作は取り消せません）")) return;
+
+        try {
+            await deleteDoc(doc(db, "leads", lead.id));
+            router.push("/leads");
+        } catch (error) {
+            console.error("Error deleting lead:", error);
+            alert("削除に失敗しました。");
+        }
     };
 
     return (
@@ -30,13 +47,15 @@ export function LeadDetailHeader({ lead }: LeadDetailHeaderProps) {
                     </Avatar>
 
                     <div className="space-y-4">
-                        {/* Top Row: Name and Badges */}
+                        {/* Top Row: Name, Status, Agent, Date */}
                         <div>
-                            <div className="flex items-center gap-3 mb-2">
+                            <div className="flex items-center gap-3 mb-2 flex-wrap">
                                 <h1 className="text-2xl font-bold text-gray-900">{lead.name}</h1>
+
                                 <Badge variant={lead.priority === "High" ? "destructive" : "secondary"}>
                                     {lead.priority === "High" ? "高" : lead.priority === "Mid" ? "中" : "低"}
                                 </Badge>
+
                                 <Badge
                                     variant="outline"
                                     className="bg-white"
@@ -48,6 +67,21 @@ export function LeadDetailHeader({ lead }: LeadDetailHeaderProps) {
                                 >
                                     {getStatusLabel(lead.status)}
                                 </Badge>
+
+                                <div className="h-4 w-px bg-gray-300 mx-1" />
+
+                                <div className="text-sm text-gray-600 flex items-center gap-2">
+                                    <span className="text-xs text-gray-400">担当:</span>
+                                    {/* Ideally Avatar here if we have agent image */}
+                                    <span className="font-medium">{lead.agentName || "未割当"}</span>
+                                </div>
+
+                                <div className="h-4 w-px bg-gray-300 mx-1" />
+
+                                <div className="text-sm text-gray-600 flex items-center gap-2">
+                                    <span className="text-xs text-gray-400">最終更新:</span>
+                                    <span>{new Date(lead.updatedAt).toLocaleDateString()}</span>
+                                </div>
                             </div>
 
                             {/* Tags Row */}
@@ -97,11 +131,23 @@ export function LeadDetailHeader({ lead }: LeadDetailHeaderProps) {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Button variant="outline" size="sm" className="gap-2">
-                        <Edit className="w-4 h-4" />
-                        編集
-                    </Button>
-                    <Button variant="outline" size="sm" className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
+                    <LeadRegistrationModal
+                        initialStatus={lead.status}
+                        lead={lead}
+                        trigger={
+                            <Button variant="outline" size="sm" className="gap-2">
+                                <Edit className="w-4 h-4" />
+                                編集
+                            </Button>
+                        }
+                    />
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                        onClick={handleDelete}
+                    >
                         <Trash2 className="w-4 h-4" />
                         削除
                     </Button>
