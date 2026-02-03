@@ -35,6 +35,18 @@ export function Header() {
                             顧客一覧
                         </Button>
                     </Link>
+                    <Link href="/properties">
+                        <Button
+                            variant="ghost"
+                            className={cn(
+                                "gap-2 h-9 text-xs font-medium rounded-md px-3 text-[#64748b] hover:text-[#0f172a] hover:bg-transparent",
+                                pathname.startsWith("/properties") && "text-[#1d4ed8] bg-blue-50/50 hover:bg-blue-50/80 hover:text-[#1d4ed8]"
+                            )}
+                        >
+                            <LayoutDashboard className="w-4 h-4" /> {/* Using LayoutDashboard for now, consider adding a specific icon for properties if available */}
+                            物件管理
+                        </Button>
+                    </Link>
                     <Link href="/dashboard">
                         <Button
                             variant="ghost"
