@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, deleteDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Property } from "@/types/property";
 import { MOCK_PROPERTIES } from "@/mocks/properties";
@@ -11,10 +11,13 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, Calendar, Ruler, LayoutGrid, Building2, Wallet } from "lucide-react";
+import { MapPin, Calendar, Ruler, LayoutGrid, Building2, Wallet, Edit, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PropertyRegistrationModal } from "@/components/properties/PropertyRegistrationModal";
 
 export default function PropertyDetailPage() {
     const params = useParams();
+    const router = useRouter();
     const id = params.id as string;
     const [property, setProperty] = useState<Property | null>(null);
     const [loading, setLoading] = useState(true);
@@ -28,21 +31,47 @@ export default function PropertyDetailPage() {
         const docRef = doc(db, "properties", id);
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
-                const data = { id: docSnap.id, ...docSnap.data() } as Property;
+                const data = { id: docSnap.id, ...docSnap.data() } as Property & { deleted?: boolean };
+
+                // Handle Soft Delete
+                if (data.deleted) {
+                    console.log("Property is deleted");
+                    router.push("/properties");
+                    return;
+                }
+
                 setProperty(data);
                 if (data.images?.length > 0) setActiveImage(data.images[0]);
             } else if (mockProp) {
-                // Return mock if DB doc invalid/missing but id matches mock
+                // If it's a mock property and DOES NOT exist in DB, it's valid to show (unless we later decide to soft-delete it by creating a tombstone)
                 setProperty(mockProp);
                 if (mockProp.images?.length > 0) setActiveImage(mockProp.images[0]);
             } else {
                 console.log("No property found");
+                // Optional: Redirect to list or 404
             }
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [id]);
+    }, [id, router]);
+
+    const handleDelete = async () => {
+        if (!property) return;
+
+        if (confirm("本当にこの物件を削除しますか？\n削除すると元に戻せません。")) {
+            try {
+                // Soft Delete for both Real and Mock properties
+                await setDoc(doc(db, "properties", property.id), { deleted: true }, { merge: true });
+
+                // Redirect handled by onSnapshot listener or manual push
+                router.push("/properties");
+            } catch (error) {
+                console.error("Error deleting property:", error);
+                alert("削除に失敗しました");
+            }
+        }
+    };
 
     if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>;
 
@@ -84,12 +113,30 @@ export default function PropertyDetailPage() {
             <Header />
 
             <main className="flex-1 p-6 space-y-6 max-w-[1200px] mx-auto w-full">
-                <Breadcrumbs
-                    items={[
-                        { label: "物件管理", href: "/properties" },
-                        { label: property.name }
-                    ]}
-                />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <Breadcrumbs
+                        items={[
+                            { label: "物件管理", href: "/properties" },
+                            { label: property.name }
+                        ]}
+                    />
+
+                    <div className="flex items-center gap-2">
+                        <PropertyRegistrationModal
+                            initialData={property}
+                            trigger={
+                                <Button variant="outline" size="sm">
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    編集
+                                </Button>
+                            }
+                        />
+                        <Button variant="destructive" size="sm" onClick={handleDelete}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            削除
+                        </Button>
+                    </div>
+                </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 

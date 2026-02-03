@@ -1,10 +1,8 @@
-"use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, updateDoc, setDoc, doc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Property } from "@/types/property";
 
@@ -42,7 +40,13 @@ const propertyFormSchema = z.object({
 
 type PropertyFormValues = z.infer<typeof propertyFormSchema>;
 
-export function PropertyRegistrationModal() {
+interface PropertyRegistrationModalProps {
+    initialData?: Property;
+    trigger?: React.ReactNode;
+    onSuccess?: () => void;
+}
+
+export function PropertyRegistrationModal({ initialData, trigger, onSuccess }: PropertyRegistrationModalProps) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
@@ -51,28 +55,67 @@ export function PropertyRegistrationModal() {
         defaultValues: {
             name: "",
             address: "",
-            price: 0 as any,
+            price: 0,
             layout: "",
-            size: 0 as any,
-            builtYear: new Date().getFullYear() as any,
+            size: 0,
+            builtYear: new Date().getFullYear(),
             status: "active",
             memo: "",
         },
     });
 
+    useEffect(() => {
+        if (open) {
+            if (initialData) {
+                form.reset({
+                    name: initialData.name,
+                    address: initialData.address,
+                    price: initialData.price,
+                    layout: initialData.layout,
+                    size: initialData.size,
+                    builtYear: initialData.builtYear,
+                    status: initialData.status,
+                    memo: initialData.memo || "",
+                });
+            } else {
+                form.reset({
+                    name: "",
+                    address: "",
+                    price: 0,
+                    layout: "",
+                    size: 0,
+                    builtYear: new Date().getFullYear(),
+                    status: "active",
+                    memo: "",
+                });
+            }
+        }
+    }, [open, initialData, form]);
+
     const onSubmit = async (data: PropertyFormValues) => {
         setLoading(true);
         try {
-            await addDoc(collection(db, "properties"), {
-                ...data,
-                images: [], // Placeholder for now
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-            });
+            if (initialData) {
+                // Update existing property
+                // Use setDoc with merge: true to handle both real updates and "promoting" mock data to real Firestore docs
+                await setDoc(doc(db, "properties", initialData.id), {
+                    ...data,
+                    updatedAt: serverTimestamp(),
+                }, { merge: true });
+            } else {
+                // Create new property
+                await addDoc(collection(db, "properties"), {
+                    ...data,
+                    images: [], // Placeholder for now
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                });
+            }
             setOpen(false);
             form.reset();
+            if (onSuccess) onSuccess();
         } catch (error) {
-            console.error("Error adding property:", error);
+            console.error("Error saving property:", error);
             alert("エラーが発生しました");
         } finally {
             setLoading(false);
@@ -82,13 +125,13 @@ export function PropertyRegistrationModal() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>+ 新規物件</Button>
+                {trigger || <Button>+ 新規物件</Button>}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>新規物件登録</DialogTitle>
+                    <DialogTitle>{initialData ? "物件情報の編集" : "新規物件登録"}</DialogTitle>
                     <DialogDescription>
-                        新しい物件の情報を入力してください。
+                        {initialData ? "物件情報を更新してください。" : "新しい物件の情報を入力してください。"}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -113,7 +156,7 @@ export function PropertyRegistrationModal() {
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="status">ステータス</Label>
-                            <Select onValueChange={(val: any) => form.setValue("status", val)} defaultValue="active">
+                            <Select onValueChange={(val: any) => form.setValue("status", val)} defaultValue={initialData?.status || "active"}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="選択" />
                                 </SelectTrigger>
@@ -148,7 +191,7 @@ export function PropertyRegistrationModal() {
 
                     <DialogFooter>
                         <Button type="submit" disabled={loading}>
-                            {loading ? "登録中..." : "登録"}
+                            {loading ? "保存中..." : (initialData ? "更新" : "登録")}
                         </Button>
                     </DialogFooter>
                 </form>

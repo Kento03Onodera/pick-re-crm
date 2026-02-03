@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Property } from "@/types/property";
 import { MOCK_PROPERTIES } from "@/mocks/properties";
@@ -11,10 +11,20 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, MapPin, Building, Calendar, List, Map as MapIcon } from "lucide-react";
+import { Search, MapPin, Calendar, List, Map as MapIcon, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { PropertyMap } from "@/components/properties/PropertyMap";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+
+// Extend Property type locally to support 'deleted' flag (Soft Delete)
+type ExtendedProperty = Property & { deleted?: boolean };
 
 export default function PropertiesPage() {
     const [properties, setProperties] = useState<Property[]>([]);
@@ -26,22 +36,69 @@ export default function PropertiesPage() {
         // Real-time listener
         const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedProps: Property[] = [];
+            const fetchedPropsMap = new Map<string, ExtendedProperty>();
             snapshot.forEach((doc) => {
-                fetchedProps.push({ id: doc.id, ...doc.data() } as Property);
+                fetchedPropsMap.set(doc.id, { id: doc.id, ...doc.data() } as ExtendedProperty);
             });
 
-            // If DB is empty, use Mock data for demonstration
-            if (fetchedProps.length === 0) {
-                setProperties(MOCK_PROPERTIES);
-            } else {
-                setProperties(fetchedProps);
-            }
+            // Merge logic: Start with Mock, override with Real
+            const combinedProperties: Property[] = [];
+
+            // 1. Process Mock Properties
+            MOCK_PROPERTIES.forEach(mockProp => {
+                if (fetchedPropsMap.has(mockProp.id)) {
+                    // Property exists in Firestore (edited or deleted)
+                    const realProp = fetchedPropsMap.get(mockProp.id)!;
+
+                    // Only add if NOT deleted
+                    if (!realProp.deleted) {
+                        combinedProperties.push(realProp);
+                    }
+
+                    // Remove from map to indicate processed
+                    fetchedPropsMap.delete(mockProp.id);
+                } else {
+                    // Property exists only in Mock (never edited/deleted)
+                    combinedProperties.push(mockProp);
+                }
+            });
+
+            // 2. Process remaining Firestore Properties (New creations)
+            fetchedPropsMap.forEach(realProp => {
+                if (!realProp.deleted) {
+                    combinedProperties.push(realProp);
+                }
+            });
+
+            // 3. Sort by createdAt desc (handling both string and Date)
+            combinedProperties.sort((a, b) => {
+                const dateA = new Date(a.updatedAt || a.createdAt).getTime();
+                const dateB = new Date(b.updatedAt || b.createdAt).getTime();
+                return dateB - dateA;
+            });
+
+            setProperties(combinedProperties);
             setLoading(false);
         });
 
         return () => unsubscribe();
     }, []);
+
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.preventDefault(); // Prevent link navigation
+        e.stopPropagation();
+
+        if (confirm("本当にこの物件を削除しますか？")) {
+            try {
+                // Soft Delete: Mark as deleted in Firestore instead of removing
+                // This persists the deletion even for "mock" properties (by creating a tombstone doc)
+                await setDoc(doc(db, "properties", id), { deleted: true }, { merge: true });
+            } catch (error) {
+                console.error("Error deleting property:", error);
+                alert("削除に失敗しました");
+            }
+        }
+    };
 
     const filteredProperties = properties.filter(p =>
         p.name.includes(searchQuery) ||
@@ -120,16 +177,17 @@ export default function PropertiesPage() {
                                             <TableHead>間取り / 面積</TableHead>
                                             <TableHead>築年数</TableHead>
                                             <TableHead>ステータス</TableHead>
+                                            <TableHead className="w-[50px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {loading ? (
                                             <TableRow>
-                                                <TableCell colSpan={6} className="text-center py-8">読み込み中...</TableCell>
+                                                <TableCell colSpan={7} className="text-center py-8">読み込み中...</TableCell>
                                             </TableRow>
                                         ) : filteredProperties.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={6} className="text-center py-8">物件が見つかりません</TableCell>
+                                                <TableCell colSpan={7} className="text-center py-8">物件が見つかりません</TableCell>
                                             </TableRow>
                                         ) : (
                                             filteredProperties.map((prop) => (
@@ -170,6 +228,30 @@ export default function PropertiesPage() {
                                                     </TableCell>
                                                     <TableCell>
                                                         {getStatusBadge(prop.status)}
+                                                    </TableCell>
+                                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100">
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <PropertyRegistrationModal
+                                                                    initialData={prop}
+                                                                    trigger={
+                                                                        <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                                                                            <Pencil className="mr-2 h-4 w-4" />
+                                                                            編集
+                                                                        </div>
+                                                                    }
+                                                                />
+                                                                <DropdownMenuItem onClick={(e) => handleDelete(e, prop.id)} className="text-red-600 focus:text-red-600">
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    削除
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     </TableCell>
                                                 </TableRow>
                                             ))
