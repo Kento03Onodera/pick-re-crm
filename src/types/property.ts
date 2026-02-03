@@ -11,6 +11,10 @@ export interface Property {
     status: PropertyStatus;
     images: string[]; // URLs
     memo?: string; // Internal notes
+    location?: {
+        lat: number;
+        lng: number;
+    };
     createdAt: Date | string; // Allow string for serializable dates (Firestore/JSON)
     updatedAt: Date | string;
 }

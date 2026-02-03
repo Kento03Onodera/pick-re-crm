@@ -12,6 +12,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "active",
         images: ["https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&auto=format&fit=crop&q=60"],
         memo: "南向き、眺望良好。ミッドと檜町公園を一望できます。",
+        location: { lat: 35.6675, lng: 139.7329 }, // Near Akasaka
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     },
@@ -26,6 +27,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "negotiating",
         images: ["https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=60"],
         memo: "ヴィンテージマンション。フルリノベーション済み。",
+        location: { lat: 35.6521, lng: 139.7224 }, // Near Hiroo
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     },
@@ -40,6 +42,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "sold",
         images: ["https://images.unsplash.com/photo-1600596542815-2495db9dc2c3?w=800&auto=format&fit=crop&q=60"],
         memo: "皇居ビュー。希少性が高い。",
+        location: { lat: 35.6905, lng: 139.7424 }, // Near Chidorigafuchi
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     },
@@ -54,6 +57,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "active",
         images: ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop&q=60"],
         memo: "ららぽーと豊洲隣接。共用施設充実。",
+        location: { lat: 35.6515, lng: 139.7967 }, // Near Toyosu
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     },
@@ -68,6 +72,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "active",
         images: ["https://images.unsplash.com/photo-1484154218962-a1c002085d2f?w=800&auto=format&fit=crop&q=60"],
         memo: "東京タワービュー。駅徒歩4分。",
+        location: { lat: 35.6547, lng: 139.7408 }, // Near Azabu-Juban
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     },
@@ -82,6 +87,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "active",
         images: ["https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&auto=format&fit=crop&q=60"],
         memo: "高台の邸宅地。静かな環境。",
+        location: { lat: 35.5891, lng: 139.7275 }, // Near Omori/Sanno
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     },
@@ -96,6 +102,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "negotiating",
         images: ["https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=60"],
         memo: "目黒駅直結。利便性最高。",
+        location: { lat: 35.6335, lng: 139.7153 }, // Near Meguro
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     },
@@ -110,6 +117,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "active",
         images: ["https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=800&auto=format&fit=crop&q=60"],
         memo: "駒沢公園近く。ペット可。",
+        location: { lat: 35.6310, lng: 139.6601 }, // Near Komazawa
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     },
@@ -124,6 +132,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "sold",
         images: ["https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=60"],
         memo: "スパ、ジム完備。シャトルバスあり。",
+        location: { lat: 35.6548, lng: 139.7749 }, // Near Harumi
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     },
@@ -138,6 +147,7 @@ export const MOCK_PROPERTIES: Property[] = [
         status: "active",
         images: ["https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=800&auto=format&fit=crop&q=60"],
         memo: "外苑前駅徒歩7分。緑豊かな環境。",
+        location: { lat: 35.6706, lng: 139.7118 }, // Near Gaienmae
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     }
