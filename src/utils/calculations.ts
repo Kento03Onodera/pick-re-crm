@@ -3,7 +3,7 @@ import { Lead } from "@/types/lead";
 export { type Lead };
 
 export const calculateEstimatedRevenue = (lead: Lead): number => {
-  return (lead.budget * 0.03 * lead.discountRate) + 60000;
+  return (lead.budget * 0.03 * (lead.discountRate ?? 1)) + 60000;
 };
 
 export const MOCK_LEADS: Lead[] = [
