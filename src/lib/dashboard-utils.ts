@@ -1,5 +1,5 @@
 
-import { Lead, LEAD_STATUSES } from "@/types/lead";
+import { Lead } from "@/types/lead";
 import { calculateEstimatedRevenue } from "@/utils/calculations";
 
 export interface DashboardMetrics {
@@ -104,6 +104,10 @@ export const calculateMetrics = (leads: Lead[], targets: Record<string, number>)
 export const calculatePipelineData = (leads: Lead[], mode: 'amount' | 'count'): PipelineDataPoint[] => {
     const agentMap: Record<string, PipelineDataPoint> = {};
 
+    // Statuses that count towards the Pipeline Value/Count display
+    // User Request: Only "This Month Forecast" (Scheduled/Viewed/Negotiating) + "Closed"
+    const VALID_PIPELINE_STATUSES = ['Scheduled', 'Viewed', 'Negotiating', 'Closed'];
+
     leads.forEach(lead => {
         const agent = lead.agentName || "Unknown";
         if (!agentMap[agent]) {
@@ -120,9 +124,13 @@ export const calculatePipelineData = (leads: Lead[], mode: 'amount' | 'count'): 
 
         const value = mode === 'amount' ? calculateEstimatedRevenue(lead) : 1;
 
-        // TypeScript safe access if status matches keys
-        if (LEAD_STATUSES.includes(lead.status)) {
-            agentMap[agent][lead.status] += value;
+        // Only add if status is valid for pipeline display
+        if (VALID_PIPELINE_STATUSES.includes(lead.status)) {
+            // TypeScript check safe because valid statuses are subset of keys
+            // But we must ensure the key exists in the map if exact types are strict
+            if (lead.status in agentMap[agent]) {
+                agentMap[agent][lead.status] += value;
+            }
         }
     });
 
