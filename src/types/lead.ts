@@ -50,8 +50,18 @@ export interface Lead {
     budget: number;
     discountRate?: number; // 0.0 to 1.0 (or 100). Default 1.0
     areas: string[]; // Changed from preferredArea to areas
-    propertyType?: string;
+    propertyType?: string; // Legacy? Or keep as single preferred?
+    desiredPropertyTypes?: string[]; // New Multi-select
     moveInDate?: string;
+
+    // New Search Criteria
+    size?: number; // sqm
+    layout?: string[]; // Multi-select (e.g. 2LDK, 3LDK)
+    builtYear?: number; // Year built (e.g. 5, 10, 20) -> "within N years"
+    petsAllowed?: boolean;
+    carOwned?: boolean; // Car owned
+    parkingNeeded?: boolean; // Parking needed
+    floorLevel?: string; // Desired floor (free text)
 
     isSearchRequested?: boolean; // Search Request (Checkbox)
     searchFrequency?: "3days" | "1week" | "2week";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -11,12 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Lead } from "@/types/lead";
+import { Lead, LeadStatus } from "@/types/lead";
 import { doc, updateDoc, addDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Plus } from "lucide-react";
-import { LeadStatus } from "@/types/lead";
 import { useStatuses } from "@/hooks/use-statuses";
+
+// Constants for Options
+const LAYOUT_OPTIONS = ["1R/1K", "1DK/1LDK", "2K/2DK/2LDK", "3K/3DK/3LDK", "4K〜"];
+const PROPERTY_TYPE_OPTIONS = ["マンション", "戸建", "土地", "収益物件"];
 
 // Zod Schema
 const leadFormSchema = z.object({
@@ -41,8 +44,18 @@ const leadFormSchema = z.object({
     station2: z.string().optional(),
     station3: z.string().optional(),
 
-    propertyType: z.string().optional(),
+    propertyType: z.string().optional(), // Legacy single select
+    desiredPropertyTypes: z.array(z.string()).optional(), // New Multi-select
     moveInDate: z.string().optional(),
+
+    // New criteria
+    size: z.coerce.number().min(0).optional(),
+    layout: z.array(z.string()).optional(),
+    builtYear: z.coerce.number().min(0).optional(),
+    petsAllowed: z.boolean().default(false).optional(),
+    carOwned: z.boolean().default(false).optional(),
+    parkingNeeded: z.boolean().default(false).optional(),
+    floorLevel: z.string().optional(), // Free text "{N}階以内"
 
     // Search Settings
     isSearchRequested: z.boolean().default(false).optional(),
@@ -88,7 +101,17 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
             station3: lead?.stations?.[2] || "",
 
             propertyType: lead?.propertyType || "Mansion",
+            desiredPropertyTypes: lead?.desiredPropertyTypes || [],
             moveInDate: lead?.moveInDate || "",
+
+            // New Fields Defaults
+            size: lead?.size || 0,
+            layout: lead?.layout || [],
+            builtYear: lead?.builtYear || 0,
+            petsAllowed: lead?.petsAllowed || false,
+            carOwned: lead?.carOwned || false,
+            parkingNeeded: lead?.parkingNeeded || false,
+            floorLevel: lead?.floorLevel || "",
 
             isSearchRequested: lead?.isSearchRequested || false,
             searchFrequency: lead?.searchFrequency || "1week",
@@ -123,7 +146,17 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
                     station3: lead.stations?.[2] || "",
 
                     propertyType: lead.propertyType,
+                    desiredPropertyTypes: lead.desiredPropertyTypes || [],
                     moveInDate: lead.moveInDate,
+
+                    size: lead.size || 0,
+                    layout: lead.layout || [],
+                    builtYear: lead.builtYear || 0,
+                    petsAllowed: lead.petsAllowed || false,
+                    carOwned: lead.carOwned || false,
+                    parkingNeeded: lead.parkingNeeded || false,
+                    floorLevel: lead.floorLevel || "",
+
                     isSearchRequested: lead.isSearchRequested || false,
                     searchFrequency: lead.searchFrequency || "1week",
 
@@ -140,7 +173,7 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
         }
     }, [open, initialStatus, lead, form]);
 
-    const { watch, register, handleSubmit, setValue, formState: { errors } } = form;
+    const { watch, register, handleSubmit, setValue, control, formState: { errors } } = form;
 
     const budget = watch("budget");
     const discountRate = watch("discountRate") ?? 1.0;
@@ -168,6 +201,20 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
 
                 areas: areas,
                 stations: stations,
+
+                // Standardize: If desiredPropertyTypes is used, prefer it.
+                desiredPropertyTypes: data.desiredPropertyTypes || [],
+                // Still keep legacy propertyType for backward compat if needed, or just map first value.
+                propertyType: data.desiredPropertyTypes?.[0] || data.propertyType,
+
+                // New fields
+                size: data.size,
+                layout: data.layout,
+                builtYear: data.builtYear,
+                petsAllowed: data.petsAllowed,
+                carOwned: data.carOwned,
+                parkingNeeded: data.parkingNeeded,
+                floorLevel: data.floorLevel,
 
                 isSearchRequested: data.isSearchRequested,
                 searchFrequency: data.searchFrequency,
@@ -253,7 +300,7 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
                                 {errors.phone && <span className="text-red-500 text-xs">{errors.phone.message}</span>}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="email">メールアドレス</Label>
+                                <Label htmlFor="email">メールアドレス (任意)</Label>
                                 <Input id="email" type="email" placeholder="example@mail.com" {...register("email")} />
                                 {errors.email && <span className="text-red-500 text-xs">{errors.email.message}</span>}
                             </div>
@@ -297,6 +344,111 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
                                     <Input placeholder="第1候補 (例: 山手線 渋谷駅)" {...register("station1")} />
                                     <Input placeholder="第2候補" {...register("station2")} />
                                     <Input placeholder="第3候補" {...register("station3")} />
+                                </div>
+                            </div>
+
+                            {/* New Detailed Criteria */}
+                            <div className="grid grid-cols-2 gap-4 pt-2 mt-2 border-t">
+                                <div className="col-span-2">
+                                    <Label className="mb-2 block">希望物件種別 (複数選択可)</Label>
+                                    <div className="flex flex-wrap gap-4">
+                                        <Controller
+                                            control={control}
+                                            name="desiredPropertyTypes"
+                                            render={({ field }) => (
+                                                <>
+                                                    {PROPERTY_TYPE_OPTIONS.map((type) => (
+                                                        <div key={type} className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`propType-${type}`}
+                                                                checked={field.value?.includes(type)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const newValue = checked
+                                                                        ? [...(field.value || []), type]
+                                                                        : (field.value || []).filter((v) => v !== type);
+                                                                    field.onChange(newValue);
+                                                                }}
+                                                            />
+                                                            <Label htmlFor={`propType-${type}`} className="font-normal">{type}</Label>
+                                                        </div>
+                                                    ))}
+                                                </>
+                                            )}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-2 col-span-1">
+                                    <Label htmlFor="size">広さ (㎡)</Label>
+                                    <Input id="size" type="number" placeholder="60" {...register("size")} />
+                                </div>
+
+                                <div className="grid gap-2 col-span-1">
+                                    <Label htmlFor="builtYear">築年数 (年以内)</Label>
+                                    <Input id="builtYear" type="number" placeholder="20" {...register("builtYear")} />
+                                </div>
+
+                                <div className="col-span-2">
+                                    <Label className="mb-2 block">希望間取り (複数選択可)</Label>
+                                    <div className="flex flex-wrap gap-y-2 gap-x-4">
+                                        <Controller
+                                            control={control}
+                                            name="layout"
+                                            render={({ field }) => (
+                                                <>
+                                                    {LAYOUT_OPTIONS.map((lo) => (
+                                                        <div key={lo} className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`layout-${lo}`}
+                                                                checked={field.value?.includes(lo)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const newValue = checked
+                                                                        ? [...(field.value || []), lo]
+                                                                        : (field.value || []).filter((v) => v !== lo);
+                                                                    field.onChange(newValue);
+                                                                }}
+                                                            />
+                                                            <Label htmlFor={`layout-${lo}`} className="font-normal">{lo}</Label>
+                                                        </div>
+                                                    ))}
+                                                </>
+                                            )}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="col-span-2 grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="floorLevel">所在階の希望</Label>
+                                        <Input id="floorLevel" placeholder="例: 3階以上、最上階など" {...register("floorLevel")} />
+                                    </div>
+                                </div>
+
+                                <div className="col-span-2 flex flex-wrap gap-6 pt-2">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="petsAllowed"
+                                            checked={watch("petsAllowed")}
+                                            onCheckedChange={(c) => setValue("petsAllowed", c as boolean)}
+                                        />
+                                        <Label htmlFor="petsAllowed">ペット有り</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="carOwned"
+                                            checked={watch("carOwned")}
+                                            onCheckedChange={(c) => setValue("carOwned", c as boolean)}
+                                        />
+                                        <Label htmlFor="carOwned">車所有</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="parkingNeeded"
+                                            checked={watch("parkingNeeded")}
+                                            onCheckedChange={(c) => setValue("parkingNeeded", c as boolean)}
+                                        />
+                                        <Label htmlFor="parkingNeeded">駐車場必要</Label>
+                                    </div>
                                 </div>
                             </div>
 

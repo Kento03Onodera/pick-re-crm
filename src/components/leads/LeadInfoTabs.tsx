@@ -8,6 +8,9 @@ import { calculateEstimatedRevenue } from "@/utils/calculations";
 import { Textarea } from "@/components/ui/textarea";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
+import { LeadRegistrationModal } from "@/components/leads/LeadRegistrationModal";
 
 interface LeadInfoTabsProps {
     lead: Lead;
@@ -65,14 +68,32 @@ export function LeadInfoTabs({ lead }: LeadInfoTabsProps) {
                         </CardContent>
                     </Card>
 
-
-
                     {/* Section 3: Search Requirements */}
                     <Card>
-                        <CardHeader className="pb-3 border-b bg-gray-50/50 rounded-t-xl">
+                        <CardHeader className="pb-3 border-b bg-gray-50/50 rounded-t-xl flex items-center justify-between">
                             <CardTitle className="text-base font-semibold text-gray-800">探索条件 (Requirements)</CardTitle>
+
+                            <LeadRegistrationModal
+                                lead={lead}
+                                trigger={
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                        <Pencil className="w-4 h-4 text-slate-500" />
+                                    </Button>
+                                }
+                            />
                         </CardHeader>
                         <CardContent className="grid grid-cols-2 gap-6 p-6">
+                            {/* New & Existing Fields */}
+
+                            {/* Property Types */}
+                            <InfoItem
+                                label="希望物件種別"
+                                value={lead.desiredPropertyTypes && lead.desiredPropertyTypes.length > 0
+                                    ? lead.desiredPropertyTypes.join(", ")
+                                    : (lead.propertyType || "指定なし")}
+                                fullWidth
+                            />
+
                             <InfoItem label="予算" value={formattedBudget} />
 
                             <InfoItem
@@ -82,27 +103,7 @@ export function LeadInfoTabs({ lead }: LeadInfoTabsProps) {
                                 subtext={`※ 予算 × 3% × ${lead.discountRate || 1.0} + 6万円`}
                             />
 
-                            <InfoItem
-                                label="検索依頼"
-                                value={lead.isSearchRequested ? "依頼あり" : "なし"}
-                                highlight={lead.isSearchRequested}
-                            />
-
-                            <InfoItem
-                                label="検索頻度"
-                                value={
-                                    lead.searchFrequency === "3days" ? "3日ごと" :
-                                        lead.searchFrequency === "1week" ? "1週間ごと" :
-                                            lead.searchFrequency === "2week" ? "2週間ごと" : "-"
-                                }
-                            />
-
-                            <InfoItem
-                                label="手数料値引き率"
-                                value={lead.discountRate ? `${lead.discountRate} (定価=1.0)` : "1.0"}
-                            />
-
-                            <div className="h-0 md:col-span-1" />
+                            <div className="col-span-2 border-t my-2" />
 
                             <InfoItem
                                 label="希望エリア"
@@ -126,10 +127,33 @@ export function LeadInfoTabs({ lead }: LeadInfoTabsProps) {
                                 ) : "指定なし"}
                             />
 
-                            <InfoItem label="広さ" value="60㎡以上" />
-                            <InfoItem label="間取り" value="2LDK / 3LDK" />
-                            <InfoItem label="ペット" value={lead.tags?.includes("ペット可") ? "希望する" : "指定なし"} />
-                            <InfoItem label="築年数" value="指定なし" />
+                            <div className="col-span-2 border-t my-2" />
+
+                            <InfoItem label="広さ" value={lead.size ? `${lead.size}㎡以上` : "指定なし"} />
+                            <InfoItem label="間取り" value={lead.layout && lead.layout.length > 0 ? lead.layout.join(", ") : "指定なし"} />
+                            <InfoItem label="築年数" value={lead.builtYear ? `${lead.builtYear}年以内` : "指定なし"} />
+                            <InfoItem label="所在階" value={lead.floorLevel || "指定なし"} />
+
+                            <InfoItem label="ペット" value={lead.petsAllowed ? "有り" : "無し/指定なし"} />
+                            <InfoItem label="車所有" value={lead.carOwned ? "有り" : "無し"} />
+                            <InfoItem label="駐車場" value={lead.parkingNeeded ? "必要" : "不要"} />
+
+                            <div className="col-span-2 border-t my-2" />
+
+                            <InfoItem
+                                label="検索依頼"
+                                value={lead.isSearchRequested ? "依頼あり" : "なし"}
+                                highlight={lead.isSearchRequested}
+                            />
+
+                            <InfoItem
+                                label="検索頻度"
+                                value={
+                                    lead.searchFrequency === "3days" ? "3日ごと" :
+                                        lead.searchFrequency === "1week" ? "1週間ごと" :
+                                            lead.searchFrequency === "2week" ? "2週間ごと" : "-"
+                                }
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -171,9 +195,9 @@ export function LeadInfoTabs({ lead }: LeadInfoTabsProps) {
     );
 }
 
-function InfoItem({ label, value, highlight = false, subtext }: { label: string; value: string | React.ReactNode; highlight?: boolean; subtext?: string }) {
+function InfoItem({ label, value, highlight = false, subtext, fullWidth = false }: { label: string; value: string | React.ReactNode; highlight?: boolean; subtext?: string, fullWidth?: boolean }) {
     return (
-        <div className="flex flex-col gap-1">
+        <div className={`flex flex-col gap-1 ${fullWidth ? "col-span-2" : ""}`}>
             <span className="text-xs font-medium text-gray-500">{label}</span>
             <span className={`text-sm font-medium ${highlight ? "text-blue-600 text-lg" : "text-gray-900"}`}>
                 {value}
