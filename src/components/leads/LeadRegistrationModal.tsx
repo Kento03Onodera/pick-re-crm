@@ -28,7 +28,7 @@ const leadFormSchema = z.object({
     name: z.string().min(1, "顧客名は必須です"),
     company: z.string().optional(),
     email: z.string().email("無効なメールアドレスです").optional().or(z.literal("")),
-    phone: z.string().min(10, "電話番号は10桁以上である必要があります").regex(/^[0-9-]+$/, "半角数字とハイフンのみ使用可能です"),
+    phone: z.string().min(10, "電話番号は10桁以上である必要があります").regex(/^[0-9-]+$/, "半角数字とハイフンのみ使用可能です").optional().or(z.literal("")),
 
     // Requirements
     budget: z.coerce.number().min(0),
@@ -295,7 +295,7 @@ export function LeadRegistrationModal({ trigger, initialStatus, lead }: { trigge
                                 {errors.name && <span className="text-red-500 text-xs">{errors.name.message}</span>}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="phone">電話番号 <span className="text-red-500">*</span></Label>
+                                <Label htmlFor="phone">電話番号 (任意)</Label>
                                 <Input id="phone" placeholder="090-1234-5678" {...register("phone")} />
                                 {errors.phone && <span className="text-red-500 text-xs">{errors.phone.message}</span>}
                             </div>

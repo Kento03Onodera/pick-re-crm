@@ -32,6 +32,10 @@ export default function PropertiesPage() {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
+    // Edit Modal State
+    const [editingProperty, setEditingProperty] = useState<Property | undefined>(undefined);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
     useEffect(() => {
         // Real-time listener
         const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
@@ -85,19 +89,26 @@ export default function PropertiesPage() {
     }, []);
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
-        e.preventDefault(); // Prevent link navigation
+        // Stop propagation strictly to avoid parent clicks (link navigation)
+        e.preventDefault();
         e.stopPropagation();
 
         if (confirm("本当にこの物件を削除しますか？")) {
             try {
-                // Soft Delete: Mark as deleted in Firestore instead of removing
-                // This persists the deletion even for "mock" properties (by creating a tombstone doc)
+                // Soft Delete
                 await setDoc(doc(db, "properties", id), { deleted: true }, { merge: true });
             } catch (error) {
                 console.error("Error deleting property:", error);
                 alert("削除に失敗しました");
             }
         }
+    };
+
+    const openEditModal = (e: React.MouseEvent, prop: Property) => {
+        e.preventDefault();
+        e.stopPropagation(); // Avoid navigating to detail
+        setEditingProperty(prop);
+        setIsEditModalOpen(true);
     };
 
     const filteredProperties = properties.filter(p =>
@@ -149,6 +160,8 @@ export default function PropertiesPage() {
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
+
+                        {/* Global Property Registration (New) */}
                         <PropertyRegistrationModal />
                     </div>
                 </div>
@@ -237,15 +250,10 @@ export default function PropertiesPage() {
                                                                 </Button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end">
-                                                                <PropertyRegistrationModal
-                                                                    initialData={prop}
-                                                                    trigger={
-                                                                        <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                                                                            <Pencil className="mr-2 h-4 w-4" />
-                                                                            編集
-                                                                        </div>
-                                                                    }
-                                                                />
+                                                                <DropdownMenuItem onClick={(e) => openEditModal(e, prop)}>
+                                                                    <Pencil className="mr-2 h-4 w-4" />
+                                                                    編集
+                                                                </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={(e) => handleDelete(e, prop.id)} className="text-red-600 focus:text-red-600">
                                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                                     削除
@@ -306,6 +314,17 @@ export default function PropertiesPage() {
                     )}
                 </div>
             </main>
+
+            {/* Global Edit Modal */}
+            <PropertyRegistrationModal
+                key={editingProperty?.id || 'new'}
+                initialData={editingProperty}
+                open={isEditModalOpen}
+                onOpenChange={(open) => {
+                    setIsEditModalOpen(open);
+                    if (!open) setEditingProperty(undefined); // Reset on close
+                }}
+            />
         </div>
     );
 }

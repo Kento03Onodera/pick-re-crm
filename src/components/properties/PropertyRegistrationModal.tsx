@@ -44,11 +44,19 @@ interface PropertyRegistrationModalProps {
     initialData?: Property;
     trigger?: React.ReactNode;
     onSuccess?: () => void;
+    // Controlled props
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export function PropertyRegistrationModal({ initialData, trigger, onSuccess }: PropertyRegistrationModalProps) {
-    const [open, setOpen] = useState(false);
+export function PropertyRegistrationModal({ initialData, trigger, onSuccess, open: controlledOpen, onOpenChange: controlledOnOpenChange }: PropertyRegistrationModalProps) {
+    const [internalOpen, setInternalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    // Use controlled state if provided, otherwise internal state
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+    const setOpen = isControlled ? controlledOnOpenChange : setInternalOpen;
 
     const form = useForm<PropertyFormValues>({
         resolver: zodResolver(propertyFormSchema) as any,
@@ -111,7 +119,7 @@ export function PropertyRegistrationModal({ initialData, trigger, onSuccess }: P
                     updatedAt: serverTimestamp(),
                 });
             }
-            setOpen(false);
+            if (setOpen) setOpen(false);
             form.reset();
             if (onSuccess) onSuccess();
         } catch (error) {
@@ -125,7 +133,11 @@ export function PropertyRegistrationModal({ initialData, trigger, onSuccess }: P
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                {trigger || <Button>+ 新規物件</Button>}
+                {trigger ? trigger : (
+                    // Only show default button if NOT controlled (or if trigger explicitly passed)
+                    // If controlled and no trigger, we assume parent triggers via state
+                    !isControlled && <Button>+ 新規物件</Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
